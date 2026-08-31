@@ -1,5 +1,8 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
+
 abstract class Entity
 {
     public int Id;
@@ -7,18 +10,29 @@ abstract class Entity
 
     public abstract void Display();
 }
+
 class Task : Entity, IComparable<Task>
 {
     public string Description = "";
     private string _status = "";
 
+    public DateTime CreatedDate { get; set; }
+
+    public DateOnly EffectiveDate { get; set; }
+
+    public DateTime UpdatedDate { get; set; }
+
     public int Priority { get; set; }
+
+
 
     public string Status
     {
         get => _status;
 
-        set => _status = value == "pending" || value == "completed" ? value : throw new ArgumentException("Status must be Pending or Completed");
+        set => _status = value == "pending" || value == "completed"
+            ? value
+            : throw new ArgumentException("Status must be Pending or Completed");
 
     }
 
@@ -36,8 +50,13 @@ class Task : Entity, IComparable<Task>
         Console.WriteLine($"Description: {Description}");
         Console.WriteLine($"Status: {Status}");
         Console.WriteLine($"Priority: {Priority}");
+        Console.WriteLine($"Created Date: {CreatedDate:dd/MM/yyyy HH:mm:ss}\n");
+        Console.WriteLine($"Effective Date: {EffectiveDate:dd/MM/yyyy}\n");
+        Console.WriteLine($"Updated Date: {UpdatedDate:dd/MM/yyyy HH:mm:ss}\n");
+
     }
 }
+
 class Program
 {
     private static List<Task> tasks = new List<Task>();
@@ -58,13 +77,56 @@ class Program
 
             Console.Write("Enter Priority (1-5): ");
 
-            if (!int.TryParse(Console.ReadLine(), out int priority))
+            if (!int.TryParse(Console.ReadLine(), out int priority) || priority < 1 || priority > 5)
             {
-                Console.WriteLine("Invalid Priority.");
+                Console.WriteLine("Priority must be between 1 and 5.");
                 return;
             }
 
             task.Priority = priority;
+
+            // Logic for Date validation 
+            DateOnly effectiveDate;
+
+            while (true)
+            {
+                Console.Write("Enter Effective Date (dd/MM/yyyy): ");
+                string dateInput = Console.ReadLine() ?? "";
+
+                string datePattern =
+                    @"^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}$";
+
+                if (!Regex.IsMatch(dateInput, datePattern))
+                {
+                    Console.WriteLine("Invalid date format! Please use dd/MM/yyyy.");
+                    continue;
+                }
+
+                if (!DateOnly.TryParseExact(
+                     dateInput,
+                     "dd/MM/yyyy",
+                     out effectiveDate))
+                {
+                    Console.WriteLine("Invalid date! Please enter a valid calendar date.");
+                    continue;
+                }
+
+                // Reject future dates
+                if (effectiveDate > DateOnly.FromDateTime(DateTime.Today))
+                {
+                    Console.WriteLine("Future dates are not allowed.");
+                    Console.WriteLine("Please enter today's date or a past date.");
+                    continue;
+                }
+
+                break;
+            }
+
+            DateTime now = DateTime.Now;
+
+            task.CreatedDate = now;
+            task.UpdatedDate = now;
+            task.EffectiveDate = effectiveDate;
 
             task.Id = Entity.count++;
 
@@ -86,11 +148,25 @@ class Program
             return;
         }
 
+        bool found = false;
+
+        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+
+
         foreach (Task task in tasks)
         {
-            task.Display();
+            if (task.EffectiveDate <= today)
+            {
+                task.Display();
+                found = true;
+            }
+        }
+        if (!found)
+        {
+            Console.WriteLine("No effective tasks found!");
         }
     }
+
 
     static void CompleteTask()
     {
@@ -107,6 +183,7 @@ class Program
             if (task.Id == id)
             {
                 task.Status = "completed";
+                task.UpdatedDate = DateTime.Now;
                 Console.WriteLine("Task completed.");
                 return;
             }
@@ -165,7 +242,8 @@ class Program
             else if (choice == "c" && task.Status.ToLower() == "completed")
             {
                 Console.WriteLine(
-                    $"Task Id: {task.Id}\nTask Status: {task.Status}\nTask Description: {task.Description}\n");
+                    $"Task Id: {task.Id}\nTask Status: {task.Status}\nTask Description: {task.Description}\n"
+                );
                 found = true;
             }
         }
@@ -272,6 +350,11 @@ class Program
         }
     }
 
+    static void RealeseDate()
+    {
+
+    }
+
     static void Main()
     {
         while (true)
@@ -287,6 +370,7 @@ class Program
             Console.WriteLine("9. Add Task To Review Queue");
             Console.WriteLine("10. Review Next Task");
             Console.WriteLine("11. View Review Queue");
+
 
             Console.Write("\nEnter Choice: ");
 
@@ -341,6 +425,7 @@ class Program
                 case 11:
                     ViewReviewQueue();
                     break;
+
 
                 default:
                     Console.WriteLine("Invalid Choice.");
