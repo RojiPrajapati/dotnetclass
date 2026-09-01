@@ -2,10 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.IO;
+using System.Linq;
 
 abstract class Entity
 {
-    public int Id;
+    public int Id { get; set; }
     public static int count = 1;
 
     public abstract void Display();
@@ -13,7 +16,7 @@ abstract class Entity
 
 class Task : Entity, IComparable<Task>
 {
-    public string Description = "";
+    public string Description { get; set; } = "";
     private string _status = "";
 
     public DateTime CreatedDate { get; set; }
@@ -85,7 +88,7 @@ class Program
 
             task.Priority = priority;
 
-            // Logic for Date validation 
+            // Date validation logic
             DateOnly effectiveDate;
 
             while (true)
@@ -132,6 +135,8 @@ class Program
 
             tasks.Add(task);
 
+            SaveTasks();
+
             Console.WriteLine("Task added successfully.");
         }
         catch (Exception ex)
@@ -139,6 +144,9 @@ class Program
             Console.WriteLine(ex.Message);
         }
     }
+
+
+
 
     static void ListTasks()
     {
@@ -167,6 +175,16 @@ class Program
         }
     }
 
+    static void SaveTasks()
+    {
+        string json = JsonSerializer.Serialize(tasks, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText("./tasks.json", json);
+    }
+
 
     static void CompleteTask()
     {
@@ -184,6 +202,7 @@ class Program
             {
                 task.Status = "completed";
                 task.UpdatedDate = DateTime.Now;
+                SaveTasks();
                 Console.WriteLine("Task completed.");
                 return;
             }
@@ -216,6 +235,7 @@ class Program
         if (taskToRemove != null)
         {
             tasks.Remove(taskToRemove);
+            SaveTasks();
             Console.WriteLine("Task deleted.");
         }
         else
@@ -350,13 +370,33 @@ class Program
         }
     }
 
-    static void RealeseDate()
+    static void LoadTasks()
     {
+        if (!File.Exists("tasks.json"))
+            return;
 
+        string json = File.ReadAllText("tasks.json");
+
+        List<Task>? loadedTasks =
+            JsonSerializer.Deserialize<List<Task>>(json);
+
+        if (loadedTasks != null)
+        {
+            tasks = loadedTasks;
+
+            if (tasks.Count > 0)
+            {
+                Entity.count = tasks.Max(t => t.Id) + 1;
+            }
+        }
     }
+
+
+
 
     static void Main()
     {
+        LoadTasks();
         while (true)
         {
             Console.WriteLine("1. Add Task");
@@ -370,6 +410,8 @@ class Program
             Console.WriteLine("9. Add Task To Review Queue");
             Console.WriteLine("10. Review Next Task");
             Console.WriteLine("11. View Review Queue");
+            Console.WriteLine("12. Save Tasks");
+
 
 
             Console.Write("\nEnter Choice: ");
@@ -424,6 +466,12 @@ class Program
 
                 case 11:
                     ViewReviewQueue();
+                    break;
+
+                case 12:
+                    SaveTasks();
+                    Console.WriteLine(Path.GetFullPath("tasks.json"));
+                    Console.WriteLine("Tasks saved successfully to tasks.json");
                     break;
 
 
